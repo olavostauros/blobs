@@ -1,0 +1,28 @@
+#!/usr/bin/env bats
+bats_require_minimum_version 1.5.0
+
+setup() {
+  load test_helper
+  setup_blobs_env
+}
+
+@test "list: no prefix lists bucket root" {
+  run blobs list
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == "ls test/test-bucket" ]]
+}
+
+@test "list: prefix appended to target" {
+  run blobs list sessions/
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == "ls test/test-bucket/sessions/" ]]
+}
+
+@test "list: --json passes flag to mc" {
+  run blobs list --json
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == *"--json"* ]]
+}

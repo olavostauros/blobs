@@ -1,0 +1,11 @@
+[settings]
+experimental = true
+quiet = true
+task_output = "interleave"
+
+[tools]
+usage = "latest"
+bats = "1.13.0"
+jq = "latest"
+mc = "RELEASE.2025-08-13T08-35-41Z"
+shellcheck = "0.11.0"
