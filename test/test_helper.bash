@@ -60,3 +60,54 @@ last_mc_call() { tail -n 1 "$MC_LOG" 2>/dev/null; }
 
 # Read all mc invocations.
 all_mc_calls() { cat "$MC_LOG" 2>/dev/null; }
+
+# ─── Google Drive (rclone) helpers ───────────────────────────────────────────
+#
+# Set up an isolated test environment for drive tasks:
+#   - BATS_TEST_TMPDIR/bin/rclone      mock rclone recording invocations
+#   - BATS_TEST_TMPDIR/rclone.log      log of `rclone` calls (one line per call)
+#   - BATS_TEST_TMPDIR/rclone.remotes  fake listremotes output (populated by default)
+#   - BATS_TEST_TMPDIR/sa-key.json     fake service account key file (0600)
+#   - env: GDRIVE_REMOTE, GDRIVE_SA_KEY_FILE, GDRIVE_FOLDER_ID, PATH
+setup_drive_env() {
+  export GDRIVE_REMOTE="test-drive"
+  export GDRIVE_FOLDER_ID="test-folder-id"
+
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  RCLONE_LOG="$BATS_TEST_TMPDIR/rclone.log"
+  RCLONE_REMOTES="$BATS_TEST_TMPDIR/rclone.remotes"
+  export RCLONE_LOG RCLONE_REMOTES
+
+  # Fake SA key file outside MISE_CONFIG_ROOT with correct permissions.
+  GDRIVE_SA_KEY_FILE="$BATS_TEST_TMPDIR/sa-key.json"
+  export GDRIVE_SA_KEY_FILE
+  echo '{"type":"service_account"}' > "$GDRIVE_SA_KEY_FILE"
+  chmod 600 "$GDRIVE_SA_KEY_FILE"
+
+  # By default, the remote exists (so drive:_env passes verification).
+  echo "test-drive:" > "$RCLONE_REMOTES"
+
+  cat > "$BATS_TEST_TMPDIR/bin/rclone" <<'RCLONEEOF'
+#!/usr/bin/env bash
+# Mock rclone — logs args, emits canned output for listremotes.
+printf '%s\n' "$*" >> "$RCLONE_LOG"
+case "$1" in
+  listremotes) cat "$RCLONE_REMOTES" 2>/dev/null || true ;;
+  *) : ;;
+esac
+exit 0
+RCLONEEOF
+  chmod +x "$BATS_TEST_TMPDIR/bin/rclone"
+
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+  export PATH
+}
+
+# Make the remote appear not-configured (for tests that assert the guard fires).
+clear_drive_remote() { : > "$RCLONE_REMOTES"; }
+
+# Read the last rclone invocation from the log.
+last_rclone_call() { tail -n 1 "$RCLONE_LOG" 2>/dev/null; }
+
+# Read all rclone invocations.
+all_rclone_calls() { cat "$RCLONE_LOG" 2>/dev/null; }

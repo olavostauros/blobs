@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#MISE description="Shared Google Drive environment setup"
+#MISE hide=true
+# Source this file from drive tasks to resolve target + verify prerequisites.
+#
+# Usage:
+#   source "$MISE_CONFIG_ROOT/.mise/tasks/drive/_env"
+#
+# Required environment:
+#   GDRIVE_REMOTE        — rclone remote name
+#   GDRIVE_SA_KEY_FILE   — path to service account JSON key
+#
+# After sourcing, these variables are set:
+#   DRIVE_TARGET — rclone target prefix (remote:)
+
+if [ -z "${GDRIVE_REMOTE:-}" ]; then
+  echo "ERROR: GDRIVE_REMOTE is not set" >&2
+  echo "       Set the GDRIVE_REMOTE env var (the rclone remote name this drive config should use)." >&2
+  exit 1
+fi
+
+if [ -z "${GDRIVE_SA_KEY_FILE:-}" ]; then
+  echo "ERROR: GDRIVE_SA_KEY_FILE is not set" >&2
+  echo "       Set the GDRIVE_SA_KEY_FILE env var (path to service account JSON key)." >&2
+  exit 1
+fi
+
+# Gap 4: verify the key file still exists at runtime — it can be deleted or
+# moved independently of the rclone config, producing a raw rclone CRITICAL
+# error otherwise.
+if [ ! -f "$GDRIVE_SA_KEY_FILE" ]; then
+  echo "ERROR: SA key file not found: $GDRIVE_SA_KEY_FILE" >&2
+  echo "       Restore the file or re-run: blobs drive:setup" >&2
+  exit 1
+fi
+
+DRIVE_TARGET="${GDRIVE_REMOTE}:"
+
+# Verify rclone is available
+if ! command -v rclone &>/dev/null; then
+  echo "ERROR: rclone not found." >&2
+  echo "       Install with: mise install (rclone is managed by mise)" >&2
+  exit 1
+fi
+
+# Verify remote is configured
+if ! rclone listremotes | grep -q "^${GDRIVE_REMOTE}:"; then
+  echo "ERROR: rclone remote '${GDRIVE_REMOTE}' not configured." >&2
+  echo "       Run: blobs drive:setup" >&2
+  exit 1
+fi

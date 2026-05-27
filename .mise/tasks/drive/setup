@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#MISE description="Configure the rclone Drive remote from a service account key (one-time local setup)"
+#
+# Required environment:
+#   GDRIVE_REMOTE        — rclone remote name to create
+#   GDRIVE_SA_KEY_FILE   — path to service account JSON key
+#   GDRIVE_FOLDER_ID     — shared folder ID to scope the remote to (baked into
+#                          rclone config; not needed at runtime after setup)
+
+set -e
+
+if ! command -v rclone &>/dev/null; then
+  echo "ERROR: rclone not found." >&2
+  echo "       Install with: mise install (rclone is managed by mise)" >&2
+  exit 1
+fi
+
+missing=()
+[ -z "${GDRIVE_REMOTE:-}"      ] && missing+=("GDRIVE_REMOTE")
+[ -z "${GDRIVE_SA_KEY_FILE:-}" ] && missing+=("GDRIVE_SA_KEY_FILE")
+[ -z "${GDRIVE_FOLDER_ID:-}"   ] && missing+=("GDRIVE_FOLDER_ID")
+
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "ERROR: Missing required env var(s): ${missing[*]}" >&2
+  echo "" >&2
+  echo "Set the following before running 'blobs drive:setup':" >&2
+  echo "  GDRIVE_REMOTE        (rclone remote name to create)" >&2
+  echo "  GDRIVE_SA_KEY_FILE   (path to service account JSON key)" >&2
+  echo "  GDRIVE_FOLDER_ID     (shared folder ID)" >&2
+  exit 1
+fi
+
+if [ ! -f "$GDRIVE_SA_KEY_FILE" ] || [ ! -r "$GDRIVE_SA_KEY_FILE" ]; then
+  echo "ERROR: SA key file not found or not readable: $GDRIVE_SA_KEY_FILE" >&2
+  exit 1
+fi
+
+# Gap 1: stat -c '%a' is GNU/Linux only — no BSD fallback needed; CI is Linux.
+key_perms=$(stat -c '%a' "$GDRIVE_SA_KEY_FILE")
+if [ "$key_perms" != "600" ]; then
+  echo "ERROR: SA key file permissions must be exactly 0600 (got $key_perms)." >&2
+  echo "       Fix with: chmod 600 $GDRIVE_SA_KEY_FILE" >&2
+  exit 1
+fi
+
+# Gap 2: use realpath for symlink-safe path comparison; fall back to prefix
+# check when realpath is unavailable.
+if command -v realpath &>/dev/null; then
+  real_key=$(realpath "$GDRIVE_SA_KEY_FILE")
+  real_root=$(realpath "$MISE_CONFIG_ROOT")
+else
+  real_key="$GDRIVE_SA_KEY_FILE"
+  real_root="$MISE_CONFIG_ROOT"
+fi
+if [[ "$real_key" == "$real_root/"* ]]; then
+  echo "ERROR: SA key file must not be stored inside the project directory." >&2
+  echo "       Move it outside of: $MISE_CONFIG_ROOT" >&2
+  echo "       Example: mv $GDRIVE_SA_KEY_FILE ~/.config/gdrive/sa-key.json" >&2
+  exit 1
+fi
+
+if rclone listremotes | grep -q "^${GDRIVE_REMOTE}:"; then
+  echo "rclone remote '${GDRIVE_REMOTE}' is already configured."
+  echo ""
+  echo "To reconfigure:"
+  echo "  rclone config delete $GDRIVE_REMOTE"
+  echo "  blobs drive:setup"
+  exit 0
+fi
+
+echo "Configuring rclone remote '${GDRIVE_REMOTE}'..."
+rclone config create "$GDRIVE_REMOTE" drive \
+  service_account_file "$GDRIVE_SA_KEY_FILE" \
+  root_folder_id       "$GDRIVE_FOLDER_ID" \
+  scope                drive.readonly
+
+echo ""
+echo "Drive remote configured."
+echo "  Remote:    $GDRIVE_REMOTE"
+echo "  Key file:  $GDRIVE_SA_KEY_FILE"
+echo "  Folder ID: $GDRIVE_FOLDER_ID"
+echo ""
+echo "Test with: blobs drive:list"

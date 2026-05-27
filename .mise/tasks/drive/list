@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#MISE description="List files in Google Drive"
+#USAGE arg "[prefix]" help="Path prefix to filter (e.g., reports/)"
+#USAGE flag "-r --recursive" help="List all files under prefix recursively"
+
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/.mise/tasks/drive/_env"
+
+PREFIX="${usage_prefix:-}"
+TARGET="${DRIVE_TARGET}${PREFIX}"
+
+RCLONE_FLAGS=(--files-only)
+[ "${usage_recursive:-false}" = "true" ] && RCLONE_FLAGS+=(--recursive)
+
+rclone lsjson "${RCLONE_FLAGS[@]}" "$TARGET"
