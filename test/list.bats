@@ -26,3 +26,25 @@ setup() {
   last=$(last_mc_call)
   [[ "$last" == *"--json"* ]]
 }
+
+@test "list: --recursive passes flag to mc" {
+  run blobs list --recursive
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == *"--recursive"* ]]
+}
+
+@test "list: -r short flag passes --recursive to mc" {
+  run blobs list -r
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == *"--recursive"* ]]
+}
+
+@test "list: --recursive with prefix passes both to mc" {
+  run blobs list --recursive backups/
+  [ "$status" -eq 0 ]
+  last=$(last_mc_call)
+  [[ "$last" == *"--recursive"* ]]
+  [[ "$last" == *"backups/"* ]]
+}
