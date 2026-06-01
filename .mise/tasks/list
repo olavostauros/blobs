@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 #MISE description="List blobs in storage"
-#USAGE arg "[prefix]" help="Key prefix to filter (e.g., sessions/)"
-#USAGE flag "--json" help="Output as JSON"
+#USAGE arg "[prefix]" default="" help="Key prefix to filter (e.g., sessions/)"
+#USAGE flag "--json" default=#false help="Output as JSON"
+#USAGE flag "-r --recursive" default=#false help="List all objects under prefix recursively"
 
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
 PREFIX="${usage_prefix:-}"
-JSON="${usage_json:-false}"
 
 TARGET="${BLOB_TARGET}"
 [ -n "$PREFIX" ] && TARGET="${TARGET}/${PREFIX}"
 
-if [ "$JSON" = "true" ]; then
-  mc ls --json "$TARGET"
-else
-  mc ls "$TARGET"
-fi
+MC_FLAGS=()
+[ "${usage_json:-false}"      = "true" ] && MC_FLAGS+=(--json)
+[ "${usage_recursive:-false}" = "true" ] && MC_FLAGS+=(--recursive)
+
+mc ls "${MC_FLAGS[@]}" "$TARGET"
