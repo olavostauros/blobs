@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="List blobs in storage"
-#USAGE arg "[prefix]" help="Key prefix to filter (e.g., sessions/)"
-#USAGE flag "--json" help="Output as JSON"
-#USAGE flag "-r --recursive" help="List all objects under prefix recursively"
+#USAGE arg "[prefix]" default="" help="Key prefix to filter (e.g., sessions/)"
+#USAGE flag "--json" default=#false help="Output as JSON"
+#USAGE flag "-r --recursive" default=#false help="List all objects under prefix recursively"
 
 set -euo pipefail
 
