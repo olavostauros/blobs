@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Download a file from Google Drive"
-#USAGE arg "<key>" help="Drive file path, or Drive file ID when --id is set"
+#USAGE arg "<key>" help="Drive file path within the configured folder"
 #USAGE arg "[dest]" help="Local destination path (default: stdout)"
-#USAGE flag "--id" help="Treat key as a Drive file ID (from drive:list JSON output)"
 
 set -euo pipefail
 
@@ -10,26 +9,14 @@ source "$MISE_CONFIG_ROOT/.mise/tasks/drive/_env"
 
 KEY="$usage_key"
 DEST="${usage_dest:-}"
-BY_ID="${usage_id:-false}"
 
-if [ "$BY_ID" = "true" ]; then
-  # rclone backend copyid bypasses root_folder_id scope — it fetches by raw
-  # Drive ID, not by path within the configured folder. IDs should come from
-  # drive:list output to stay within the intended folder.
-  if [ -z "$DEST" ]; then
-    tmp=$(mktemp)
-    trap 'rm -f "$tmp"' EXIT
-    rclone backend copyid "$DRIVE_TARGET" "$KEY" "$tmp"
-    cat "$tmp"
-  else
-    rclone backend copyid "$DRIVE_TARGET" "$KEY" "$DEST"
-    echo "Downloaded: ${KEY} -> ${DEST}" >&2
-  fi
+# Path-based retrieval only: every request goes through the configured
+# root_folder_id, so it cannot escape the shared folder. (ID-based download via
+# `rclone backend copyid` was intentionally omitted — it bypasses root_folder_id
+# scoping, which issue #4 milestone 1 forbids.)
+if [ -z "$DEST" ]; then
+  rclone cat "${DRIVE_TARGET}${KEY}"
 else
-  if [ -z "$DEST" ]; then
-    rclone cat "${DRIVE_TARGET}${KEY}"
-  else
-    rclone copyto -q "${DRIVE_TARGET}${KEY}" "$DEST"
-    echo "Downloaded: ${KEY} -> ${DEST}" >&2
-  fi
+  rclone copyto -q "${DRIVE_TARGET}${KEY}" "$DEST"
+  echo "Downloaded: ${KEY} -> ${DEST}" >&2
 fi

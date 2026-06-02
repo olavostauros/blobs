@@ -35,8 +35,9 @@ if [ ! -f "$GDRIVE_SA_KEY_FILE" ] || [ ! -r "$GDRIVE_SA_KEY_FILE" ]; then
   exit 1
 fi
 
-# Gap 1: stat -c '%a' is GNU/Linux only — no BSD fallback needed; CI is Linux.
-key_perms=$(stat -c '%a' "$GDRIVE_SA_KEY_FILE")
+# stat -c is GNU/Linux; stat -f is BSD/macOS. CI runs both, so try GNU first
+# and fall back to BSD.
+key_perms=$(stat -c '%a' "$GDRIVE_SA_KEY_FILE" 2>/dev/null || stat -f '%Lp' "$GDRIVE_SA_KEY_FILE")
 if [ "$key_perms" != "600" ]; then
   echo "ERROR: SA key file permissions must be exactly 0600 (got $key_perms)." >&2
   echo "       Fix with: chmod 600 $GDRIVE_SA_KEY_FILE" >&2
@@ -60,12 +61,24 @@ if [[ "$real_key" == "$real_root/"* ]]; then
 fi
 
 if rclone listremotes | grep -q "^${GDRIVE_REMOTE}:"; then
-  echo "rclone remote '${GDRIVE_REMOTE}' is already configured."
-  echo ""
-  echo "To reconfigure:"
-  echo "  rclone config delete $GDRIVE_REMOTE"
-  echo "  blobs drive:setup"
-  exit 0
+  # The remote already exists — verify it is the folder-scoped, read-only Drive
+  # remote this tool expects before trusting it. A name collision with a
+  # pre-existing broad Drive remote would otherwise grant unintended access.
+  existing=$(rclone config show "$GDRIVE_REMOTE" 2>/dev/null)
+  if grep -qiE '^type *= *drive$'              <<<"$existing" \
+     && grep -qiE '^scope *= *drive\.readonly$' <<<"$existing" \
+     && grep -qiE '^root_folder_id *= *.+$'      <<<"$existing"; then
+    echo "rclone remote '${GDRIVE_REMOTE}' is already configured."
+    echo ""
+    echo "To reconfigure:"
+    echo "  rclone config delete $GDRIVE_REMOTE"
+    echo "  blobs drive:setup"
+    exit 0
+  fi
+  echo "ERROR: rclone remote '${GDRIVE_REMOTE}' already exists but is not a folder-scoped, read-only Drive remote." >&2
+  echo "       Refusing to reuse it — it may grant broad Drive access." >&2
+  echo "       Delete and recreate it: rclone config delete $GDRIVE_REMOTE && blobs drive:setup" >&2
+  exit 1
 fi
 
 echo "Configuring rclone remote '${GDRIVE_REMOTE}'..."

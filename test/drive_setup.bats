@@ -85,3 +85,13 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"already configured"* ]]
 }
+
+@test "drive:setup: refuses to reuse an existing broad remote with the same name" {
+  echo "test-drive:" > "$RCLONE_REMOTES"
+  set_broad_drive_remote
+  run blobs drive:setup
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"broad Drive access"* ]]
+  # Must not silently treat the broad remote as already configured.
+  [[ "$output" != *"already configured"* ]]
+}

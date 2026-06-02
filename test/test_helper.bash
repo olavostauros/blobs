@@ -76,7 +76,8 @@ setup_drive_env() {
   mkdir -p "$BATS_TEST_TMPDIR/bin"
   RCLONE_LOG="$BATS_TEST_TMPDIR/rclone.log"
   RCLONE_REMOTES="$BATS_TEST_TMPDIR/rclone.remotes"
-  export RCLONE_LOG RCLONE_REMOTES
+  RCLONE_CONFIG_SHOW="$BATS_TEST_TMPDIR/rclone.config"
+  export RCLONE_LOG RCLONE_REMOTES RCLONE_CONFIG_SHOW
 
   # Fake SA key file outside MISE_CONFIG_ROOT with correct permissions.
   GDRIVE_SA_KEY_FILE="$BATS_TEST_TMPDIR/sa-key.json"
@@ -87,12 +88,23 @@ setup_drive_env() {
   # By default, the remote exists (so drive:_env passes verification).
   echo "test-drive:" > "$RCLONE_REMOTES"
 
+  # By default, the remote is the folder-scoped, read-only Drive remote that
+  # drive:_env / drive:setup expect (so identity verification passes).
+  cat > "$RCLONE_CONFIG_SHOW" <<EOF
+[test-drive]
+type = drive
+scope = drive.readonly
+service_account_file = $GDRIVE_SA_KEY_FILE
+root_folder_id = test-folder-id
+EOF
+
   cat > "$BATS_TEST_TMPDIR/bin/rclone" <<'RCLONEEOF'
 #!/usr/bin/env bash
-# Mock rclone — logs args, emits canned output for listremotes.
+# Mock rclone — logs args, emits canned output for listremotes / config show.
 printf '%s\n' "$*" >> "$RCLONE_LOG"
 case "$1" in
   listremotes) cat "$RCLONE_REMOTES" 2>/dev/null || true ;;
+  config) [ "$2" = "show" ] && { cat "$RCLONE_CONFIG_SHOW" 2>/dev/null || true; } ;;
   *) : ;;
 esac
 exit 0
@@ -105,6 +117,16 @@ RCLONEEOF
 
 # Make the remote appear not-configured (for tests that assert the guard fires).
 clear_drive_remote() { : > "$RCLONE_REMOTES"; }
+
+# Simulate a pre-existing broad Drive remote (full scope, no folder restriction)
+# that happens to share the configured remote name — should be rejected.
+set_broad_drive_remote() {
+  cat > "$RCLONE_CONFIG_SHOW" <<'EOF'
+[test-drive]
+type = drive
+scope = drive
+EOF
+}
 
 # Read the last rclone invocation from the log.
 last_rclone_call() { tail -n 1 "$RCLONE_LOG" 2>/dev/null; }

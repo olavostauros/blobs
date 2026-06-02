@@ -35,3 +35,31 @@ setup() {
   [[ "$output" == *"rclone remote 'test-drive' not configured"* ]]
   [[ "$output" == *"drive:setup"* ]]
 }
+
+@test "drive:_env: rejects a broad (non-readonly) Drive remote" {
+  set_broad_drive_remote
+  run blobs drive:list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not scoped read-only"* ]]
+}
+
+@test "drive:_env: rejects a remote with no root_folder_id" {
+  cat > "$RCLONE_CONFIG_SHOW" <<'EOF'
+[test-drive]
+type = drive
+scope = drive.readonly
+EOF
+  run blobs drive:list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no root_folder_id"* ]]
+}
+
+@test "drive:_env: rejects a non-Drive remote sharing the name" {
+  cat > "$RCLONE_CONFIG_SHOW" <<'EOF'
+[test-drive]
+type = s3
+EOF
+  run blobs drive:list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not a Google Drive remote"* ]]
+}

@@ -49,3 +49,23 @@ if ! rclone listremotes | grep -q "^${GDRIVE_REMOTE}:"; then
   echo "       Run: blobs drive:setup" >&2
   exit 1
 fi
+
+# Verify the remote is the folder-scoped, read-only Drive remote this tool
+# configured — not a pre-existing broad Drive remote that happens to share the
+# name. This enforces the "no broad Drive access" contract on every call.
+remote_config=$(rclone config show "$GDRIVE_REMOTE" 2>/dev/null)
+if ! grep -qiE '^type *= *drive$' <<<"$remote_config"; then
+  echo "ERROR: rclone remote '${GDRIVE_REMOTE}' is not a Google Drive remote." >&2
+  echo "       Reconfigure it: rclone config delete ${GDRIVE_REMOTE} && blobs drive:setup" >&2
+  exit 1
+fi
+if ! grep -qiE '^scope *= *drive\.readonly$' <<<"$remote_config"; then
+  echo "ERROR: rclone remote '${GDRIVE_REMOTE}' is not scoped read-only (scope must be drive.readonly)." >&2
+  echo "       Reconfigure it: rclone config delete ${GDRIVE_REMOTE} && blobs drive:setup" >&2
+  exit 1
+fi
+if ! grep -qiE '^root_folder_id *= *.+$' <<<"$remote_config"; then
+  echo "ERROR: rclone remote '${GDRIVE_REMOTE}' has no root_folder_id — refusing broad Drive access." >&2
+  echo "       Reconfigure it: rclone config delete ${GDRIVE_REMOTE} && blobs drive:setup" >&2
+  exit 1
+fi

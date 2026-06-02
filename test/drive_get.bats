@@ -28,17 +28,9 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-@test "drive:get: --id to stdout uses rclone backend copyid" {
+@test "drive:get: does not accept --id (no ID-based, scope-bypassing download)" {
   run blobs drive:get --id 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
-  [ "$status" -eq 0 ]
-  last=$(last_rclone_call)
-  [[ "$last" == "backend copyid test-drive: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms "* ]]
-}
-
-@test "drive:get: --id to file uses rclone backend copyid and reports" {
-  run blobs drive:get --id 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms "$BATS_TEST_TMPDIR/out.pdf"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Downloaded: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"* ]]
-  last=$(last_rclone_call)
-  [[ "$last" == "backend copyid test-drive: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms $BATS_TEST_TMPDIR/out.pdf" ]]
+  [ "$status" -ne 0 ]
+  calls=$(all_rclone_calls)
+  [[ "$calls" != *"copyid"* ]]
 }
