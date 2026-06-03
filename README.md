@@ -5,7 +5,7 @@
 ```
 blobs put <key> <file>       Upload
 blobs get <key> [dest]       Download (default: stdout)
-blobs list [prefix]          List objects
+blobs list [-r] [prefix]     List objects (--recursive/-r for all depths)
 blobs delete <key>           Remove an object
 blobs welcome                Status overview
 blobs setup                  Configure the mc alias (one-time)
