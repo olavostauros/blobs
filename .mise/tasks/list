@@ -17,4 +17,4 @@ MC_FLAGS=()
 [ "${usage_json:-false}"      = "true" ] && MC_FLAGS+=(--json)
 [ "${usage_recursive:-false}" = "true" ] && MC_FLAGS+=(--recursive)
 
-mc ls "${MC_FLAGS[@]}" "$TARGET"
+mc ls ${MC_FLAGS[@]+"${MC_FLAGS[@]}"} "$TARGET"

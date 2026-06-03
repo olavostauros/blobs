@@ -10,6 +10,16 @@ source "$MISE_CONFIG_ROOT/.mise/tasks/drive/_env"
 KEY="$usage_key"
 DEST="${usage_dest:-}"
 
+# Reject option-style keys (e.g. --id): `rclone backend copyid --id <id>`
+# bypasses root_folder_id scoping, which issue #4 milestone 1 forbids. drive:get
+# is path-based only so every request stays within the configured folder. (See
+# the comment below.)
+if [[ "$KEY" == --* ]]; then
+  echo "ERROR: unsupported option '$KEY'. drive:get is path-based only; ID-based" >&2
+  echo "       download (--id) is not supported because it bypasses folder scope." >&2
+  exit 2
+fi
+
 # Path-based retrieval only: every request goes through the configured
 # root_folder_id, so it cannot escape the shared folder. (ID-based download via
 # `rclone backend copyid` was intentionally omitted — it bypasses root_folder_id
